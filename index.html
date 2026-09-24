@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pro Auction Arena | Cricket & Kabaddi</title>
+  
+  <!-- Firebase SDKs (Compat for zero-build standalone HTML) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: #141b2d;
+      --card-border: #1f2942;
+      --accent: #f59e0b;
+      --accent-hover: #d97706;
+      --danger: #ef4444;
+      --success: #10b981;
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* Top Bar */
+    header {
+      background: #080b13;
+      border-bottom: 1px solid var(--card-border);
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .brand { font-size: 1.3rem; font-weight: 800; color: var(--accent); letter-spacing: 1px; display: flex; align-items: center; gap: 8px; }
+    .status-badge { padding: 4px 10px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; }
+    .badge-live { background: rgba(239, 68, 68, 0.2); color: var(--danger); border: 1px solid var(--danger); }
+
+    /* Screens & Grids */
+    .screen { display: none; padding: 24px; max-width: 1200px; margin: 0 auto; width: 100%; flex: 1; }
+    .screen.active { display: block; }
+    .card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+    /* Auth View & Buttons */
+    .login-container { max-width: 420px; margin: 60px auto; }
+    .form-group { margin-bottom: 16px; }
+    label { display: block; margin-bottom: 6px; font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; }
+    input, select { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--card-border); background: #080b13; color: #fff; font-size: 1rem; outline: none; }
+    input:focus, select:focus { border-color: var(--accent); }
+    .btn { display: inline-flex; justify-content: center; align-items: center; padding: 12px 20px; border-radius: 8px; font-weight: 700; font-size: 1rem; cursor: pointer; border: none; transition: 0.2s; text-transform: uppercase; }
+    .btn-block { width: 100%; }
+    .btn-accent { background: var(--accent); color: #000; }
+    .btn-accent:hover { background: var(--accent-hover); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-secondary { background: #374151; color: #fff; }
+
+    /* Live Player Billboard & Radar */
+    .billboard { text-align: center; border: 2px solid var(--accent); position: relative; overflow: hidden; }
+    .sport-tag { position: absolute; top: 12px; left: 12px; background: #000; color: var(--accent); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 800; }
+    .player-name { font-size: 2.2rem; font-weight: 900; margin-top: 10px; }
+    .player-meta { color: var(--text-muted); font-size: 1.1rem; margin-bottom: 16px; }
+    .bid-box { background: #080b13; border-radius: 10px; padding: 20px; margin: 16px 0; display: flex; justify-content: space-around; align-items: center; }
+    .bid-metric h4 { color: var(--text-muted); font-size: 0.85rem; }
+    .bid-metric div { font-size: 2rem; font-weight: 900; color: var(--success); }
+    .radar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin-top: 12px; }
+    .radar-card { padding: 10px; border-radius: 8px; font-size: 0.85rem; font-weight: 700; text-align: center; border: 1px solid var(--card-border); background: #080b13; }
+    .radar-card.active { border-color: var(--success); color: var(--success); }
+    .radar-card.out { border-color: var(--danger); color: var(--danger); opacity: 0.45; text-decoration: line-through; }
+    .squad-list { max-height: 250px; overflow-y: auto; margin-top: 10px; }
+    .squad-item { display: flex; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--card-border); font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">⚡ ARENA AUCTION ENGINE</div>
+    <div id="userHeader" style="display:none; align-items:center; gap: 16px;">
+      <span id="roleBadge" class="status-badge badge-live">LOBBY</span>
+      <button class="btn btn-accent" style="padding: 6px 12px; font-size:0.8rem;" onclick="viewAllSquads()">📋 View All Squads</button>
+      <button class="btn btn-secondary" style="padding: 6px 12px; font-size:0.8rem;" onclick="logout()">Logout</button>
+    </div>
+  </header>
+
+  <!-- SCREEN 1: AUTH -->
+  <div id="authScreen" class="screen active">
+    <div class="card login-container">
+      <h2 style="margin-bottom: 20px; text-align: center;">Join Auction Room</h2>
+      
+      <div class="form-group">
+        <label>Select Role</label>
+        <select id="userRoleSelect" onchange="toggleTeamDropdown()">
+          <option value="admin">Auctioneer (Admin)</option>
+          <option value="team">Team Owner</option>
+        </select>
+      </div>
+
+      <div class="form-group" id="teamSelectGroup" style="display:none;">
+        <label>Select Your Franchise</label>
+        <select id="franchiseSelect"></select>
+      </div>
+
+      <div class="form-group">
+        <label>Passcode</label>
+        <input type="password" id="passcode" placeholder="Enter Passcode">
+      </div>
+
+      <button class="btn btn-accent btn-block" onclick="connectAndLogin()">Enter Arena</button>
+      <p style="font-size:0.75rem; color:var(--text-muted); text-align:center; margin-top:12px;">
+        Admin passcode: <b>admin123</b> | Team passcode: <b>1234</b>
+      </p>
+    </div>
+  </div>
+  <!-- SCREEN 2: AUCTIONEER (ADMIN) CONTROL -->
+  <div id="adminScreen" class="screen">
+    <div class="grid-2">
+      <!-- Left: Player Control -->
+      <div style="display: flex; flex-direction: column; gap: 20px;">
+        <div class="card">
+          <h3>Tournament Controls</h3>
+          <div style="display: flex; gap: 10px; margin: 15px 0;">
+            <button class="btn btn-secondary" onclick="switchSport('cricket')">Cricket Pool</button>
+            <button class="btn btn-secondary" onclick="switchSport('kabaddi')">Kabaddi Pool</button>
+            <button class="btn btn-danger" style="margin-left:auto;" onclick="seedDatabase()">⚡ Seed 500 Players</button>
+          </div>
+          <div class="form-group">
+            <label>Search & Call Next Player</label>
+            <select id="playerDropdown" onchange="selectPlayer()"></select>
+          </div>
+          <button class="btn btn-accent btn-block" onclick="callPlayerToStage()">Put Player on Block</button>
+        </div>
+
+        <div class="card">
+          <h3>Team Interest Radar</h3>
+          <div class="radar-grid" id="adminRadarGrid"></div>
+        </div>
+      </div>
+
+      <!-- Right: Live Hammer -->
+      <div class="card billboard">
+        <div class="sport-tag" id="liveSportTag">WAITING</div>
+        <div class="player-name" id="adminPlayerName">No Player On Stage</div>
+        <div class="player-meta" id="adminPlayerMeta">Waiting for Auctioneer to start</div>
+        
+        <div class="bid-box">
+          <div class="bid-metric"><h4>BASE PRICE</h4><div id="adminBasePrice" style="color:var(--text)">₹0</div></div>
+          <div class="bid-metric"><h4>CURRENT BID</h4><div id="adminCurrentBid">₹0</div></div>
+        </div>
+
+        <div style="font-size:1.1rem; margin-bottom: 20px;">
+          Highest Bidder: <b id="adminLeadingTeam" style="color:var(--accent)">None</b>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+          <button class="btn btn-success" onclick="sellCurrentPlayer()">🔨 SELL (HAMMER)</button>
+          <button class="btn btn-danger" onclick="passPlayer()">PASS (UNSOLD)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- SCREEN 3: TEAM OWNER DASHBOARD -->
+  <div id="ownerScreen" class="screen">
+    <div class="grid-2">
+      <!-- Left: Player Spotlight -->
+      <div class="card billboard">
+        <div class="sport-tag" id="ownerSportTag">SPORT</div>
+        <div class="player-name" id="ownerPlayerName">Waiting for Auctioneer</div>
+        <div class="player-meta" id="ownerPlayerMeta">Next player will appear soon</div>
+
+        <div class="bid-box">
+          <div class="bid-metric"><h4>CURRENT BID</h4><div id="ownerCurrentBid">₹0</div></div>
+          <div class="bid-metric"><h4>LEADER</h4><div id="ownerLeadingTeam" style="font-size:1.4rem; color:var(--accent)">None</div></div>
+        </div>
+
+        <div style="display: flex; gap: 12px; margin-top: 20px;">
+          <button id="bidBtn" class="btn btn-accent" style="flex:2; font-size:1.2rem;" onclick="submitBid()">BID +₹<span id="nextIncrementText">10L</span></button>
+          <button id="passBtn" class="btn btn-danger" style="flex:1;" onclick="submitPass()">NOT INTERESTED</button>
+        </div>
+      </div>
+
+      <!-- Right: Team Purse -->
+      <div style="display: flex; flex-direction: column; gap: 20px;">
+        <div class="card">
+          <h2 id="ownerFranchiseName">My Franchise</h2>
+          <div style="display:flex; justify-content:space-between; margin:15px 0;">
+            <div><div style="font-size:0.8rem; color:var(--text-muted)">REMAINING PURSE</div><div id="ownerPurseDisplay" style="font-size:1.6rem; font-weight:900; color:var(--success)">₹0</div></div>
+            <div><div style="font-size:0.8rem; color:var(--text-muted)">ROSTER COUNT</div><div id="ownerSquadCount" style="font-size:1.6rem; font-weight:900; color:var(--accent)">0 / 25</div></div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Acquired Players</h3>
+          <div class="squad-list" id="ownerSquadList"><div style="color:var(--text-muted); font-size:0.85rem; padding: 10px;">No players bought yet.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN 4: ALL SQUADS SUMMARY -->
+  <div id="squadsScreen" class="screen">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+      <h2>All Franchise Squads</h2>
+      <button class="btn btn-secondary" onclick="backToAuction()">⬅ Back to Live Auction</button>
+    </div>
+    <div class="grid-3" id="allSquadsContainer"></div>
+  </div>
+  <script>
+    // System State
+    let db = null;
+    let currentUser = null; 
+    let liveState = {};
+    let allPlayers = {};
+    let activeSport = 'cricket';
+
+    // HARDCODED DATABASE URL
+    const FIREBASE_URL = "https://cricket-auction-9f3e0-default-rtdb.asia-southeast1.firebasedatabase.app/";
+
+    // Preloaded Franchise Sets
+    const TEAMS_CRICKET = {
+      "csk": { name: "Chennai Super Kings", budget: 1000000000, squad: [] },
+      "mi":  { name: "Mumbai Indians", budget: 1000000000, squad: [] },
+      "rcb": { name: "Royal Challengers Bengaluru", budget: 1000000000, squad: [] },
+      "kkr": { name: "Kolkata Knight Riders", budget: 1000000000, squad: [] },
+      "srh": { name: "Sunrisers Hyderabad", budget: 1000000000, squad: [] },
+      "rr":  { name: "Rajasthan Royals", budget: 1000000000, squad: [] },
+      "dc":  { name: "Delhi Capitals", budget: 1000000000, squad: [] },
+      "gt":  { name: "Gujarat Titans", budget: 1000000000, squad: [] }
+    };
+
+    const TEAMS_KABADDI = {
+      "puneri": { name: "Puneri Paltan", budget: 50000000, squad: [] },
+      "patna":  { name: "Patna Pirates", budget: 50000000, squad: [] },
+      "jaipur": { name: "Jaipur Pink Panthers", budget: 50000000, squad: [] },
+      "mumba":  { name: "U Mumba", budget: 50000000, squad: [] },
+      "bengal": { name: "Bengal Warriors", budget: 50000000, squad: [] },
+      "delhi":  { name: "Dabang Delhi KC", budget: 50000000, squad: [] }
+    };
+    function toggleTeamDropdown() {
+      const role = document.getElementById('userRoleSelect').value;
+      const group = document.getElementById('teamSelectGroup');
+      const select = document.getElementById('franchiseSelect');
+      if (role === 'team') {
+        group.style.display = 'block';
+        select.innerHTML = '';
+        const allTeams = { ...TEAMS_CRICKET, ...TEAMS_KABADDI };
+        for (let key in allTeams) select.innerHTML += `<option value="${key}">${allTeams[key].name}</option>`;
+      } else {
+        group.style.display = 'none';
+      }
+    }
+
+    function connectAndLogin() {
+      const role = document.getElementById('userRoleSelect').value;
+      const pass = document.getElementById('passcode').value.trim();
+      try {
+        if (!firebase.apps.length) firebase.initializeApp({ databaseURL: FIREBASE_URL });
+        db = firebase.database();
+      } catch (e) { return alert("Failed to connect to Firebase: " + e.message); }
+
+      if (role === 'admin') {
+        if (pass !== 'admin123') return alert("Invalid Admin passcode!");
+        currentUser = { role: 'admin', name: 'Auctioneer' };
+        enterScreen('adminScreen'); initAdminSuite();
+      } else {
+        if (pass !== '1234') return alert("Invalid Team passcode!");
+        const teamKey = document.getElementById('franchiseSelect').value;
+        const all = { ...TEAMS_CRICKET, ...TEAMS_KABADDI };
+        currentUser = { role: 'team', id: teamKey, name: all[teamKey].name };
+        enterScreen('ownerScreen'); initOwnerSuite();
+      }
+      document.getElementById('userHeader').style.display = 'flex';
+      document.getElementById('roleBadge').innerText = currentUser.name;
+    }
+
+    function enterScreen(screenId) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(screenId).classList.add('active');
+    }
+    function logout() { location.reload(); }
+
+    function formatINR(val) {
+      if (!val) return "₹0";
+      if (val >= 10000000) return "₹" + (val / 10000000).toFixed(2) + " Cr";
+      if (val >= 100000) return "₹" + (val / 100000).toFixed(2) + " L";
+      return "₹" + val.toLocaleString();
+    }
+    function getBidIncrement(currentBid) {
+      if (currentBid < 10000000) return 1000000;  
+      if (currentBid < 50000000) return 2500000;  
+      return 5000000;                             
+    }
+    function viewAllSquads() {
+      db.ref('teams').once('value', (snap) => {
+        const teams = snap.val();
+        const container = document.getElementById('allSquadsContainer');
+        container.innerHTML = '';
+        for (let tId in teams) {
+          const t = teams[tId];
+          const squad = t.squad || [];
+          let playersHtml = squad.map(p => `
+            <div style="display:flex; justify-content:space-between; border-bottom:1px solid #1f2942; padding:6px 0;">
+              <span>${p.name} <small style="color:var(--text-muted)">(${p.role})</small></span>
+              <span style="color:var(--success); font-weight:600;">${formatINR(p.price)}</span>
+            </div>`).join('');
+          if (squad.length === 0) playersHtml = '<div style="color:var(--text-muted); font-size:0.85rem; padding: 10px 0;">No players bought yet.</div>';
+          container.innerHTML += `
+            <div class="card" style="display:flex; flex-direction:column;">
+              <h3 style="color:var(--accent); margin-bottom: 5px;">${t.name}</h3>
+              <div style="display:flex; justify-content:space-between; font-size:0.85rem; color:var(--text-muted); margin-bottom:15px; border-bottom: 1px solid var(--card-border); padding-bottom:10px;">
+                <span>Purse: <b style="color:#fff">${formatINR(t.budget)}</b></span><span>Players: <b style="color:#fff">${squad.length}</b></span>
+              </div>
+              <div style="flex:1; overflow-y:auto; max-height:250px; font-size:0.9rem;">${playersHtml}</div>
+            </div>`;
+        }
+        enterScreen('squadsScreen');
+      });
+    }
+    function backToAuction() { if (currentUser.role === 'admin') enterScreen('adminScreen'); else enterScreen('ownerScreen'); }
+
+    function initAdminSuite() {
+      db.ref('live_auction').on('value', (snap) => { liveState = snap.val() || {}; renderAdminStage(); });
+      loadPlayersForSport(activeSport);
+    }
+    function switchSport(sport) { activeSport = sport; loadPlayersForSport(sport); db.ref('live_auction/sport').set(sport); }
+    function loadPlayersForSport(sport) {
+      db.ref(`players_${sport}`).once('value', (snap) => {
+        allPlayers = snap.val() || {};
+        const dropdown = document.getElementById('playerDropdown');
+        dropdown.innerHTML = '<option value="">-- Choose Player --</option>';
+        for (let id in allPlayers) dropdown.innerHTML += `<option value="${id}">${allPlayers[id].name} (${allPlayers[id].role}) - ${formatINR(allPlayers[id].base_price)}</option>`;
+      });
+    }
+    function callPlayerToStage() {
+      const pId = document.getElementById('playerDropdown').value;
+      if (!pId) return alert("Select a player first!");
+      const p = allPlayers[pId];
+      const initialInterest = {};
+      for (let k in (activeSport === 'cricket' ? TEAMS_CRICKET : TEAMS_KABADDI)) initialInterest[k] = true;
+      db.ref('live_auction').set({ sport: activeSport, player_id: pId, player_name: p.name, role: p.role, base_price: p.base_price, current_bid: p.base_price, highest_bidder: "None", highest_bidder_name: "None", status: "live", team_interest: initialInterest });
+    }
+    function renderAdminStage() {
+      if (!liveState.player_name) return;
+      document.getElementById('liveSportTag').innerText = (liveState.sport || 'CRICKET').toUpperCase();
+      document.getElementById('adminPlayerName').innerText = liveState.player_name;
+      document.getElementById('adminPlayerMeta').innerText = `${liveState.role} | Base: ${formatINR(liveState.base_price)}`;
+      document.getElementById('adminBasePrice').innerText = formatINR(liveState.base_price);
+      document.getElementById('adminCurrentBid').innerText = formatINR(liveState.current_bid);
+      document.getElementById('adminLeadingTeam').innerText = liveState.highest_bidder_name || "None";
+      const grid = document.getElementById('adminRadarGrid'); grid.innerHTML = '';
+      const interest = liveState.team_interest || {};
+      for (let tId in interest) {
+        const allTeams = { ...TEAMS_CRICKET, ...TEAMS_KABADDI };
+        grid.innerHTML += `<div class="radar-card ${interest[tId] ? 'active' : 'out'}">${allTeams[tId]?.name || tId}<br><span style="font-size:0.75rem">${interest[tId] ? 'IN' : 'PASSED'}</span></div>`;
+      }
+    }
+    function sellCurrentPlayer() {
+      if (!liveState.player_id || liveState.status !== 'live') return;
+      if (liveState.highest_bidder === "None") return alert("No bids received! Pass the player instead.");
+      db.ref(`teams/${liveState.highest_bidder}`).once('value', (snap) => {
+        let teamData = snap.val() || { budget: 1000000000, squad: [] };
+        teamData.budget -= liveState.current_bid;
+        if (!teamData.squad) teamData.squad = [];
+        teamData.squad.push({ name: liveState.player_name, role: liveState.role, price: liveState.current_bid });
+        db.ref(`teams/${liveState.highest_bidder}`).set(teamData);
+      });
+      db.ref(`players_${liveState.sport}/${liveState.player_id}/status`).set('sold');
+      db.ref('live_auction/status').set('sold');
+      alert(`HAMMER DROPPED! ${liveState.player_name} SOLD to ${liveState.highest_bidder_name} for ${formatINR(liveState.current_bid)}`);
+    }
+    function passPlayer() {
+      if (!liveState.player_id) return;
+      db.ref(`players_${liveState.sport}/${liveState.player_id}/status`).set('unsold');
+      db.ref('live_auction/status').set('unsold'); alert(`${liveState.player_name} remains UNSOLD.`);
+    }
+
+    function initOwnerSuite() {
+      document.getElementById('ownerFranchiseName').innerText = currentUser.name;
+      db.ref(`teams/${currentUser.id}`).on('value', (snap) => {
+        const teamData = snap.val();
+        if (teamData) {
+          currentUser.budget = teamData.budget;
+          document.getElementById('ownerPurseDisplay').innerText = formatINR(teamData.budget);
+          const squad = teamData.squad || [];
+          document.getElementById('ownerSquadCount').innerText = `${squad.length} / 25`;
+          const list = document.getElementById('ownerSquadList'); list.innerHTML = '';
+          squad.forEach(p => list.innerHTML += `<div class="squad-item"><span><b>${p.name}</b> (${p.role})</span><span style="color:var(--success)">${formatINR(p.price)}</span></div>`);
+        }
+      });
+      db.ref('live_auction').on('value', (snap) => { liveState = snap.val() || {}; renderOwnerStage(); });
+    }
+    function renderOwnerStage() {
+      if (!liveState.player_name) return;
+      document.getElementById('ownerSportTag').innerText = (liveState.sport || 'CRICKET').toUpperCase();
+      document.getElementById('ownerPlayerName').innerText = liveState.player_name;
+      document.getElementById('ownerPlayerMeta').innerText = `${liveState.role} | Base: ${formatINR(liveState.base_price)}`;
+      document.getElementById('ownerCurrentBid').innerText = formatINR(liveState.current_bid);
+      document.getElementById('ownerLeadingTeam').innerText = liveState.highest_bidder_name || "None";
+      
+      const inc = getBidIncrement(liveState.current_bid);
+      document.getElementById('nextIncrementText').innerText = formatINR(inc).replace('₹', '');
+      
+      const bidBtn = document.getElementById('bidBtn'); const passBtn = document.getElementById('passBtn');
+      const isOut = liveState.team_interest && liveState.team_interest[currentUser.id] === false;
+      
+      bidBtn.disabled = isOut || liveState.highest_bidder === currentUser.id || liveState.status !== 'live' || (currentUser.budget < (liveState.current_bid + inc));
+      passBtn.disabled = isOut || liveState.status !== 'live';
+    }
+    function submitBid() {
+      const nextBid = liveState.current_bid + getBidIncrement(liveState.current_bid);
+      if (currentUser.budget < nextBid) return alert("Insufficient budget!");
+      db.ref('live_auction').update({ current_bid: nextBid, highest_bidder: currentUser.id, highest_bidder_name: currentUser.name });
+    }
+    function submitPass() { db.ref(`live_auction/team_interest/${currentUser.id}`).set(false); }
+
+    function seedDatabase() {
+      if (!confirm("This will populate 300 Cricket & 200 Kabaddi players into Firebase. Continue?")) return;
+      const cricketPlayers = {}, kabaddiPlayers = {};
+      const cFirst = ["Virat", "Rohit", "Jasprit", "Rishabh", "Shubman", "Hardik", "Ravindra", "Suryakumar", "Shreyas", "Sanju", "KL", "Arshdeep"];
+      const cLast = ["Kohli", "Sharma", "Bumrah", "Pant", "Gill", "Pandya", "Jadeja", "Yadav", "Iyer", "Samson", "Rahul", "Singh"];
+      for (let i = 1; i <= 300; i++) {
+        cricketPlayers[`cric_${String(i).padStart(3, '0')}`] = {
+          name: `${cFirst[i % cFirst.length]} ${cLast[(i * 3) % cLast.length]}`,
+          role: (i > 75 && i <= 180) ? "Bowler" : (i > 180 && i <= 255) ? "All-Rounder" : (i > 255) ? "Wicket-Keeper" : "Batter",
+          base_price: i <= 20 ? 20000000 : (i <= 60 ? 10000000 : (i <= 150 ? 5000000 : 3000000)), status: "unsold"
+        };
+      }
+      const kFirst = ["Pawan", "Pardeep", "Maninder", "Fazel", "Sunil", "Naveen", "Arjun", "Sachin"];
+      const kLast = ["Sehrawat", "Narwal", "Singh", "Atrachali", "Kumar", "Goyat", "Deshwal", "Tanwar"];
+      for (let i = 1; i <= 200; i++) {
+        kabaddiPlayers[`kab_${String(i).padStart(3, '0')}`] = {
+          name: `${kFirst[i % kFirst.length]} ${kLast[(i * 2) % kLast.length]}`,
+          role: (i > 80 && i <= 160) ? "Defender" : (i > 160) ? "All-Rounder" : "Raider",
+          base_price: i <= 15 ? 3000000 : (i <= 50 ? 2000000 : (i <= 120 ? 1300000 : 900000)), status: "unsold"
+        };
+      }
+      db.ref('players_cricket').set(cricketPlayers); db.ref('players_kabaddi').set(kabaddiPlayers);
+      db.ref('teams').set({ ...TEAMS_CRICKET, ...TEAMS_KABADDI });
+      alert("Database Seeded!"); loadPlayersForSport(activeSport);
+    }
+  </script>
+</body>
+</html>
