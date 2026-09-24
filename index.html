@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PRO AUCTION ARENA | Broadcast Edition</title>
+  
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  
+  <!-- Canvas Confetti Engine -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <!-- Chart.js for War Room Analytics -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Premium Broadcast Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800;900&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-color: #050711; --bg-gradient: radial-gradient(circle at top, #101736, #050711);
+      --glass: rgba(16, 23, 54, 0.7); --glass-border: rgba(255, 255, 255, 0.15);
+      --gold: #D4AF37; --gold-hover: #F2CA4C; --neon-blue: #00E5FF;
+      --danger: #FF3366; --warning: #F59E0B; --success: #00E676;
+      --text: #ffffff; --text-muted: #8b95b1;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Montserrat', sans-serif; }
+    body { background: var(--bg-gradient); background-color: var(--bg-color); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; overflow-x: hidden; }
+    ::-webkit-scrollbar { width: 8px; } ::-webkit-scrollbar-track { background: #050711; } ::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 10px; }
+        header { background: rgba(5, 7, 17, 0.95); backdrop-filter: blur(15px); border-bottom: 1px solid var(--glass-border); padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 4px 20px rgba(0,0,0,0.8); }
+    .brand { font-size: 1.6rem; font-weight: 900; color: var(--gold); letter-spacing: 2px; text-transform: uppercase; text-shadow: 0 0 15px rgba(212, 175, 55, 0.4); }
+    .status-badge { padding: 6px 15px; border-radius: 4px; font-size: 0.85rem; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }
+    .badge-live { background: rgba(255, 51, 102, 0.15); color: var(--danger); border: 1px solid var(--danger); animation: pulseRed 2s infinite; }
+    @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(255, 51, 102, 0.5); } 70% { box-shadow: 0 0 0 15px rgba(255, 51, 102, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 51, 102, 0); } }
+
+    .news-ticker { width: 100%; background: var(--danger); color: #fff; padding: 5px 0; font-weight: 800; font-size: 0.9rem; letter-spacing: 1px; overflow: hidden; white-space: nowrap; box-shadow: 0 2px 10px rgba(255,51,102,0.3); }
+    .news-content { display: inline-block; animation: ticker 25s linear infinite; }
+    @keyframes ticker { 0% { transform: translateX(100vw); } 100% { transform: translateX(-100%); } }
+
+    .screen { display: none; padding: 25px; max-width: 1450px; margin: 0 auto; width: 100%; flex: 1; animation: fadeIn 0.4s ease-out; }
+    .screen.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+    .card { background: var(--glass); backdrop-filter: blur(12px); border: 1px solid var(--glass-border); border-radius: 16px; padding: 25px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1.2fr; gap: 30px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
+    
+    input, select { width: 100%; padding: 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.6); color: #fff; font-size: 1.1rem; outline: none; font-weight: 600; transition: 0.3s; }
+    input:focus, select:focus { border-color: var(--neon-blue); box-shadow: 0 0 15px rgba(0, 229, 255, 0.3); }
+        .btn { display: inline-flex; justify-content: center; align-items: center; gap: 8px; padding: 14px 24px; border-radius: 6px; font-weight: 800; font-size: 1rem; letter-spacing: 1px; cursor: pointer; border: none; transition: all 0.2s ease; text-transform: uppercase; }
+    .btn:active { transform: scale(0.95); } .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; filter: grayscale(1); }
+    .btn-block { width: 100%; }
+    .btn-gold { background: linear-gradient(135deg, var(--gold), #B5952F); color: #000; box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3); }
+    .btn-danger { background: linear-gradient(135deg, #ff0f47, var(--danger)); color: #fff; }
+    .btn-success { background: linear-gradient(135deg, #00c853, var(--success)); color: #fff; }
+    .btn-outline { background: transparent; border: 1px solid var(--text-muted); color: var(--text); }
+
+    .billboard { text-align: center; border: 2px solid var(--neon-blue); position: relative; overflow: hidden; background: radial-gradient(circle at center, rgba(0, 229, 255, 0.15), transparent); }
+    .photo-wrapper { width: 150px; height: 150px; margin: 15px auto; border-radius: 50%; border: 3px solid var(--neon-blue); overflow: hidden; background: #000; box-shadow: 0 0 20px rgba(0,229,255,0.4); }
+    .photo-wrapper img { width: 100%; height: 100%; object-fit: cover; }
+    
+    .timer-wrapper { width: 100%; height: 10px; background: rgba(255,255,255,0.1); border-radius: 5px; overflow: hidden; margin-bottom: 20px; }
+    .timer-bar { height: 100%; background: var(--success); width: 100%; transition: width 1s linear, background-color 0.3s; }
+    .status-text { font-size: 1.8rem; font-weight: 900; color: var(--warning); margin-bottom: 10px; min-height: 35px; letter-spacing: 2px; text-transform: uppercase; animation: pulseRed 1s infinite; display: none; }
+
+    .scout-card { background: rgba(0,0,0,0.5); border: 1px solid var(--glass-border); padding: 10px; border-radius: 8px; display: flex; justify-content: space-around; margin: 15px 0; }
+    .scout-stat { text-align: center; } .scout-stat span { display: block; font-size: 0.75rem; color: var(--text-muted); } .scout-stat strong { font-size: 1.2rem; color: var(--gold); }
+
+    .roster-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 15px; }
+    .roster-slot { height: 60px; background: rgba(0,0,0,0.6); border: 1px solid var(--glass-border); border-radius: 6px; display: flex; flex-direction: column; justify-content: center; align-items: center; font-size: 0.7rem; text-align: center; overflow: hidden; padding: 2px; }
+    .roster-slot.filled { border-color: var(--success); background: rgba(0, 230, 118, 0.1); }
+    .roster-slot .p-name { font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+    .roster-slot .p-price { color: var(--success); font-weight: 900; }
+    
+    .tab-btn { background: transparent; border: none; color: var(--text-muted); padding: 10px 20px; font-weight: 800; cursor: pointer; border-bottom: 3px solid transparent; }
+    .tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+  </style>
+</head>
+<body>
+    <header>
+    <div class="brand">🏟️ PRO AUCTION ARENA</div>
+    <div id="userHeader" style="display:none; align-items:center; gap: 15px;">
+      <span id="roleBadge" class="status-badge badge-live">LOBBY</span>
+      <button class="btn btn-outline" style="padding: 8px 16px; font-size:0.8rem;" onclick="viewAllSquads()">📋 SQUADS & TRADES</button>
+      <button class="btn btn-danger" style="padding: 8px 16px; font-size:0.8rem;" onclick="logout()">LOGOUT</button>
+    </div>
+  </header>
+  
+  <div class="news-ticker"><div class="news-content" id="newsTicker">🚨 WELCOME TO THE PRO AUCTION ARENA. AWAITING AUCTIONEER TO START THE SEASON...</div></div>
+
+  <!-- SCREEN 1: SECURE AUTHENTICATION -->
+  <div id="authScreen" class="screen active">
+    <div class="card" style="max-width: 450px; margin: 60px auto; text-align: center; border-top: 4px solid var(--gold);">
+      <h2 style="margin-bottom: 25px; font-size: 1.8rem;">SECURE ACCESS</h2>
+      <div class="form-group" style="text-align:left;">
+        <label>System Role</label>
+        <select id="userRoleSelect" onchange="toggleAuthUI()">
+          <option value="admin">Auctioneer (Control Room)</option>
+          <option value="team">Franchise Owner</option>
+          <option value="spectator">Spectator (TV Mode)</option>
+        </select>
+      </div>
+      <div class="form-group" id="sportSelectGroup" style="text-align:left;">
+        <label>Select Tournament</label>
+        <select id="sportSelect"><option value="cricket">Cricket League</option><option value="kabaddi">Kabaddi League</option></select>
+      </div>
+      <div class="form-group" id="teamSelectGroup" style="display:none; text-align:left;">
+        <label>Select Franchise</label>
+        <select id="franchiseSelect"></select>
+      </div>
+      <div class="form-group" id="passcodeGroup" style="text-align:left;">
+        <label>Access Passcode</label>
+        <input type="password" id="passcode" placeholder="Enter secure code">
+      </div>
+      <button class="btn btn-gold btn-block" style="margin-top: 10px; font-size: 1.2rem;" onclick="connectAndLogin()">REQUEST ACCESS</button>
+      <div id="waitingMsg" style="display:none; color:var(--warning); margin-top:15px; font-weight:800; animation: pulseRed 1s infinite;">WAITING FOR ADMIN APPROVAL...</div>
+    </div>
+  </div>
+    <!-- SCREEN 2: ADMIN CONTROL ROOM -->
+  <div id="adminScreen" class="screen">
+    <div class="grid-2">
+      <div style="display: flex; flex-direction: column; gap: 20px;">
+        
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
+            <button class="tab-btn active" onclick="switchAdminTab('control')">CONTROL HUB</button>
+            <button class="tab-btn" onclick="switchAdminTab('unsold')">UNSOLD POOL</button>
+            <button class="tab-btn" onclick="switchAdminTab('finance')">FINANCE</button>
+          </div>
+
+          <!-- Tab 1: Control -->
+          <div id="adminTabControl">
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+              <button class="btn btn-outline" style="flex:1;" onclick="toggleLightningRound()" id="lightningBtn">⚡ LIGHTNING ROUND: OFF</button>
+              <button class="btn btn-danger" onclick="seedDatabase()" title="Reset Databases">RESET & SEED</button>
+            </div>
+            <div class="form-group">
+              <label>Search & Load Player</label>
+              <input list="playerDatalist" id="playerSearch" placeholder="Type player name...">
+              <datalist id="playerDatalist"></datalist>
+            </div>
+            <button class="btn btn-gold btn-block" style="padding: 18px; font-size: 1.3rem;" onclick="callPlayerToStage()">LIVE: SEND TO SCREENS</button>
+            
+            <div style="margin-top:20px; border-top:1px solid var(--glass-border); padding-top:15px;">
+              <h4 style="color:var(--text-muted); margin-bottom:10px;">WAITING ROOM REQUESTS</h4>
+              <div id="adminWaitingRoom" style="max-height:100px; overflow-y:auto; font-size:0.85rem;">No pending requests.</div>
+            </div>
+          </div>
+
+          <!-- Tab 2: Unsold Pool -->
+          <div id="adminTabUnsold" style="display:none;">
+            <div class="squad-list" id="adminUnsoldList"></div>
+          </div>
+
+          <!-- Tab 3: Finance Control -->
+          <div id="adminTabFinance" style="display:none;">
+            <select id="financeTeamSelect" style="margin-bottom:10px;"></select>
+            <input type="number" id="financeAmount" placeholder="New Budget Amount (e.g. 100000000)" style="margin-bottom:10px;">
+            <button class="btn btn-success btn-block" onclick="overrideBudget()">SET PURSE</button>
+          </div>
+        </div>
+
+        <button class="btn btn-outline btn-block" onclick="triggerTieBreaker()" id="tieBreakerBtn">⚖️ INITIATE TIE-BREAKER</button>
+      </div>
+            <!-- Admin Main Stage -->
+      <div class="card billboard" id="adminStage">
+        <div class="sport-tag" id="liveSportTag">WAITING</div>
+        <div class="timer-wrapper"><div class="timer-bar" id="adminTimerBar"></div></div>
+        <div class="status-text" id="adminStatusText">GOING ONCE!</div>
+        
+        <div class="photo-wrapper"><img id="adminPlayerImg" src="https://ui-avatars.com/api/?name=Player&background=random&color=fff" onerror="this.src='https://ui-avatars.com/api/?name=X&background=000&color=fff'"></div>
+        <div class="player-name" id="adminPlayerName">NO PLAYER</div>
+        <div class="player-meta" id="adminPlayerMeta">System Idle</div>
+        
+        <div class="scout-card">
+          <div class="scout-stat"><span>MATCHES</span><strong id="adminStatM">-</strong></div>
+          <div class="scout-stat"><span>RATING</span><strong id="adminStatR">-</strong></div>
+        </div>
+        
+        <div class="bid-box">
+          <div class="bid-metric"><h4>BASE PRICE</h4><div class="base" id="adminBasePrice">₹0</div></div>
+          <div class="bid-metric"><h4 style="color: var(--success)">CURRENT BID</h4><div class="price" id="adminCurrentBid">₹0</div></div>
+        </div>
+        <div style="font-size:1.3rem; margin-bottom: 25px; font-weight: 800;">
+          LEADING: <span id="adminLeadingTeam" style="color:var(--neon-blue);">NONE</span>
+        </div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
+          <button id="adminHammerBtn" class="btn btn-success" style="padding: 20px; font-size: 1.2rem;" onclick="sellCurrentPlayer()">🔨 DROP HAMMER</button>
+          <button class="btn btn-danger" style="padding: 20px; font-size: 1.2rem;" onclick="passPlayer()">UNSOLD (PASS)</button>
+        </div>
+        <button class="btn btn-outline btn-block" style="margin-top: 15px;" onclick="endAuction()">🛑 END SEASON & SAVE HISTORY</button>
+      </div>
+    </div>
+  </div>
+    <!-- SCREEN 3: FRANCHISE OWNER DASHBOARD -->
+  <div id="ownerScreen" class="screen">
+    <div class="grid-2">
+      <div class="card billboard" id="ownerStage">
+        <div class="sport-tag" id="ownerSportTag">SPORT</div>
+        <button class="btn btn-outline" style="position:absolute; top:15px; right:15px; padding:6px 12px; font-size:0.75rem;" onclick="requestTimeout()">⏸️ TIMEOUT</button>
+        
+        <div class="timer-wrapper" style="margin-top: 30px;"><div class="timer-bar" id="ownerTimerBar"></div></div>
+        <div class="status-text" id="ownerStatusText">GOING ONCE!</div>
+        
+        <div class="photo-wrapper"><img id="ownerPlayerImg" src="https://ui-avatars.com/api/?name=Player&background=random" onerror="this.src='https://ui-avatars.com/api/?name=X&background=000&color=fff'"></div>
+        <div class="player-name" id="ownerPlayerName">WAITING...</div>
+        <div class="player-meta" id="ownerPlayerMeta">Auctioneer configuring setup</div>
+
+        <div class="scout-card">
+          <div class="scout-stat"><span>MATCHES</span><strong id="ownerStatM">-</strong></div>
+          <div class="scout-stat"><span>RATING</span><strong id="ownerStatR">-</strong></div>
+        </div>
+
+        <div class="bid-box">
+          <div class="bid-metric"><h4 style="color: var(--success)">LIVE PRICE</h4><div class="price" id="ownerCurrentBid">₹0</div></div>
+          <div class="bid-metric"><h4>LEADER</h4><div class="base" id="ownerLeadingTeam" style="color:var(--neon-blue)">None</div></div>
+        </div>
+
+        <!-- Tie-Breaker UI -->
+        <div id="ownerTieBreakerUI" style="display:none; background:var(--danger); padding:20px; border-radius:8px; margin-top:20px;">
+          <h3 style="color:#fff; margin-bottom:10px;">⚖️ SECRET TIE-BREAKER ACTIVE</h3>
+          <input type="number" id="tieBreakerAmount" placeholder="Enter absolute maximum offer">
+          <button class="btn btn-gold btn-block" style="margin-top:10px;" onclick="submitTieBreaker()">SUBMIT SECRET BID</button>
+        </div>
+
+        <!-- Standard Bidding UI -->
+        <div id="ownerBiddingUI">
+          <div style="display: flex; gap: 15px; margin-top: 25px;">
+            <button id="bidBtn" class="btn btn-success" style="flex:2; font-size:1.5rem; padding: 25px;" onclick="submitBid()">BID +₹<span id="nextIncrementText">10L</span></button>
+            <button id="passBtn" class="btn btn-danger" style="flex:1; padding: 25px;" onclick="submitPass()">FOLD</button>
+          </div>
+          <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <input type="number" id="jumpBidAmount" placeholder="Custom Jump Amount" style="flex:2;">
+            <button id="jumpBtn" class="btn btn-gold" style="flex:1;" onclick="submitJumpBid()">🚀 JUMP BID</button>
+          </div>
+        </div>
+      </div>
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+        <div class="card" id="ownerColorCard" style="border-top: 4px solid var(--gold);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
+            <h2 id="ownerFranchiseName" style="color:var(--gold); font-size:1.6rem;">Franchise Name</h2>
+            <button class="btn btn-success" style="padding:6px 12px; font-size:0.75rem;" onclick="shareToWhatsApp()">📲 SHARE SQUAD</button>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <div>
+              <div style="font-size:0.85rem; color:var(--text-muted); font-weight:800;">REMAINING PURSE</div>
+              <div id="ownerPurseDisplay" style="font-size:2rem; font-weight:900;">₹0</div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size:0.85rem; color:var(--text-muted); font-weight:800;">TOTAL / OVERSEAS</div>
+              <div style="font-size:2rem; font-weight:900; color:var(--neon-blue);"><span id="ownerSquadCount">0/25</span> | <span id="ownerOverseasCount">0/8</span></div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="card" style="flex: 1;">
+          <h3 style="margin-bottom: 15px; border-bottom: 1px solid var(--glass-border); padding-bottom:10px;">Visual Roster (Max 25)</h3>
+          <div class="roster-grid" id="ownerRosterGrid"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN 4: SPECTATOR / TV MODE -->
+  <div id="spectatorScreen" class="screen">
+    <div class="grid-2">
+      <!-- Mirror Stage -->
+      <div class="card billboard" id="specStage">
+        <h2 style="color:var(--gold); margin-bottom: 10px; font-size: 2.5rem; letter-spacing: 3px;">LIVE BROADCAST</h2>
+        <div class="timer-wrapper"><div class="timer-bar" id="specTimerBar"></div></div>
+        <div class="photo-wrapper" style="width:200px; height:200px;"><img id="specPlayerImg" src=""></div>
+        <div class="player-name" id="specPlayerName" style="font-size: 4rem;">AWAITING</div>
+        <div class="player-meta" id="specPlayerMeta" style="font-size: 1.5rem;">System Idle</div>
+        <div class="bid-box" style="padding: 40px;">
+          <div class="bid-metric"><h4>LEADER</h4><div class="base" id="specLeadingTeam" style="color:var(--neon-blue); font-size:2.5rem;">None</div></div>
+          <div class="bid-metric"><h4 style="color:var(--success)">LIVE BID</h4><div class="price" id="specCurrentBid" style="font-size:4rem;">₹0</div></div>
+        </div>
+      </div>
+      <!-- War Room Charts -->
+      <div class="card">
+        <h2 style="margin-bottom:20px; text-align:center;">📊 WAR ROOM ANALYTICS</h2>
+        <canvas id="warRoomChart" width="400" height="400"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN 5: GLOBAL SQUADS & TRADES -->
+  <div id="squadsScreen" class="screen">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 25px; border-bottom: 1px solid var(--glass-border); padding-bottom: 15px;">
+      <h2 style="font-size: 2rem; color: var(--gold);">GLOBAL SQUADS & HISTORY</h2>
+      <div>
+        <button class="btn btn-outline" style="margin-right: 10px;" onclick="exportCSV()">💾 EXPORT CSV</button>
+        <button class="btn btn-gold" onclick="backToAuction()">⬅ RETURN</button>
+      </div>
+    </div>
+    
+    <div class="card" id="tradePanel" style="margin-bottom: 20px; background: rgba(0,229,255,0.1); display:none;">
+      <h3>POST-AUCTION TRADE WINDOW</h3>
+      <div style="display:flex; gap:10px; margin-top:10px;">
+        <select id="tradeTeamSelect" style="flex:1;"><option value="">Select Target Team</option></select>
+        <input type="text" id="tradePlayerName" placeholder="Exact Player Name to Trade For" style="flex:1;">
+        <input type="number" id="tradeOfferAmount" placeholder="Offer Amount (₹)" style="flex:1;">
+        <button class="btn btn-success" onclick="proposeTrade()">PROPOSE TRADE</button>
+      </div>
+    </div>
+
+    <div class="grid-3" id="allSquadsContainer"></div>
+  </div>
+    <script>
+    // Audio Engine Setup (Oscillators for speed/reliability, Speech for immersion)
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playTone(freq, type, duration, vol=0.1) {
+      if(audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+      osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      gain.gain.setValueAtTime(vol, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(); osc.stop(audioCtx.currentTime + duration);
+    }
+    function soundBid() { playTone(900, 'sine', 0.15, 0.2); setTimeout(()=>playTone(1200, 'sine', 0.2, 0.2), 50); }
+    function soundTick() { playTone(400, 'square', 0.05, 0.05); }
+    function soundGavel() { playTone(150, 'sawtooth', 0.3, 0.5); setTimeout(()=>playTone(100, 'sawtooth', 0.4, 0.5), 100); }
+    function aiSpeak(text) { const msg = new SpeechSynthesisUtterance(text); msg.rate = 1.1; window.speechSynthesis.speak(msg); }
+    function triggerHaptic(type) { if(navigator.vibrate) { if(type === 'bid') navigator.vibrate(50); else if(type === 'warn') navigator.vibrate([100, 50, 100]); else if(type === 'sold') navigator.vibrate([200,100,200]); } }
+
+    let db = null; let currentUser = null; let liveState = {}; let allPlayers = {}; 
+    let activeSport = 'cricket'; let lastPlayerId = null; let adminTimerInterval = null;
+    let isLightning = false; let chartInstance = null;
+
+    const FIREBASE_URL = "https://cricket-auction-9f3e0-default-rtdb.asia-southeast1.firebasedatabase.app/";
+
+    const TEAMS_CRICKET = {
+      "csk": { name: "Chennai Super Kings", color: "#F9CD05", budget: 1000000000, squad: [] }, "mi": { name: "Mumbai Indians", color: "#004BA0", budget: 1000000000, squad: [] },
+      "rcb": { name: "Royal Challengers Bengaluru", color: "#EC1C24", budget: 1000000000, squad: [] }, "kkr": { name: "Kolkata Knight Riders", color: "#3A225D", budget: 1000000000, squad: [] },
+      "srh": { name: "Sunrisers Hyderabad", color: "#F26522", budget: 1000000000, squad: [] }, "rr": { name: "Rajasthan Royals", color: "#EA1A85", budget: 1000000000, squad: [] },
+      "dc": { name: "Delhi Capitals", color: "#00008B", budget: 1000000000, squad: [] }, "gt": { name: "Gujarat Titans", color: "#1B2133", budget: 1000000000, squad: [] }
+    };
+    const TEAMS_KABADDI = {
+      "puneri": { name: "Puneri Paltan", color: "#F47A20", budget: 50000000, squad: [] }, "patna": { name: "Patna Pirates", color: "#0C5A3E", budget: 50000000, squad: [] },
+      "jaipur": { name: "Jaipur Pink Panthers", color: "#F26D9F", budget: 50000000, squad: [] }, "mumba": { name: "U Mumba", color: "#F15C19", budget: 50000000, squad: [] },
+      "bengal": { name: "Bengal Warriors", color: "#009CDC", budget: 50000000, squad: [] }, "delhi": { name: "Dabang Delhi KC", color: "#D11C3B", budget: 50000000, squad: [] }
+    };
+    
+    const PLAYER_IMAGES = {
+      "Virat Kohli": "https://upload.wikimedia.org/wikipedia/commons/e/ef/Virat_Kohli_during_the_India_vs_Japan_match_of_the_2015_Cricket_World_Cup_%28cropped%29.jpg",
+      "Rohit Sharma": "https://upload.wikimedia.org/wikipedia/commons/f/f7/Rohit_Sharma_November_2016_%28cropped%29.jpg",
+      "MS Dhoni": "https://upload.wikimedia.org/wikipedia/commons/b/b5/MS_Dhoni_in_2011.jpg",
+      "Jasprit Bumrah": "https://upload.wikimedia.org/wikipedia/commons/4/4c/Jasprit_Bumrah_in_Prime_Minister_Office.jpg"
+    };
+    function getPhoto(name) { return PLAYER_IMAGES[name] || `https://ui-avatars.com/api/?name=${name.replace(' ','+')}&background=random&color=fff&size=200`; }
+          function pushNews(msg) { document.getElementById('newsTicker').innerText = `🚨 LATEST ACTION: ${msg} 🚨`; }
+    function formatINR(val) { if (!val) return "₹0"; if (val >= 10000000) return "₹" + (val / 10000000).toFixed(2) + " Cr"; if (val >= 100000) return "₹" + (val / 100000).toFixed(2) + " L"; return "₹" + val.toLocaleString(); }
+    function getBidIncrement(val) { if (isLightning) return 2000000; if (val < 10000000) return 1000000; if (val < 50000000) return 2500000; return 5000000; }
+
+    function toggleAuthUI() {
+      const role = document.getElementById('userRoleSelect').value;
+      document.getElementById('teamSelectGroup').style.display = role === 'team' ? 'block' : 'none';
+      document.getElementById('sportSelectGroup').style.display = role === 'admin' ? 'block' : 'none';
+      document.getElementById('passcodeGroup').style.display = role === 'spectator' ? 'none' : 'block';
+      if(role === 'team') populateLoginFranchises();
+    }
+    function populateLoginFranchises() {
+      // Connect temp to get sport, or fallback to cricket
+      try { if (!firebase.apps.length) firebase.initializeApp({ databaseURL: FIREBASE_URL }); const tDb = firebase.database();
+        tDb.ref('live_auction/sport').once('value', snap => {
+          const s = snap.val() || 'cricket'; const teams = s === 'cricket' ? TEAMS_CRICKET : TEAMS_KABADDI;
+          const sel = document.getElementById('franchiseSelect'); sel.innerHTML = '';
+          for (let k in teams) sel.innerHTML += `<option value="${k}">${teams[k].name}</option>`;
+        });
+      } catch(e){}
+    }
+    toggleAuthUI();
+
+    function connectAndLogin() {
+      const role = document.getElementById('userRoleSelect').value; const pass = document.getElementById('passcode').value.trim();
+      try { if (!firebase.apps.length) firebase.initializeApp({ databaseURL: FIREBASE_URL }); db = firebase.database(); } catch (e) { return alert("System Error."); }
+      
+      if (role === 'admin') {
+        if (pass !== 'admin123') return alert("ACCESS DENIED.");
+        activeSport = document.getElementById('sportSelect').value;
+        currentUser = { role: 'admin', name: 'CONTROL ROOM' };
+        enterScreen('adminScreen'); initAdminSuite();
+      } else if (role === 'spectator') {
+        currentUser = { role: 'spectator', name: 'BROADCAST' }; enterScreen('spectatorScreen'); initSpectatorSuite();
+      } else {
+        if (pass !== '1234') return alert("ACCESS DENIED.");
+        const teamKey = document.getElementById('franchiseSelect').value;
+        document.getElementById('waitingMsg').style.display = 'block';
+        db.ref(`waiting_room/${teamKey}`).set({ requested: true, name: teamKey });
+        
+        // Listen for approval
+        db.ref(`approved_users/${teamKey}`).on('value', snap => {
+          if(snap.val() === true) {
+            db.ref(`waiting_room/${teamKey}`).remove();
+            db.ref('live_auction/sport').once('value', sSnap => {
+              activeSport = sSnap.val() || 'cricket';
+              const all = activeSport === 'cricket' ? TEAMS_CRICKET : TEAMS_KABADDI;
+              currentUser = { role: 'team', id: teamKey, name: all[teamKey].name, color: all[teamKey].color };
+              enterScreen('ownerScreen'); initOwnerSuite();
+            });
+          }
+        });
+      }
+    }
+    function enterScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); if(currentUser) { document.getElementById('userHeader').style.display = 'flex'; document.getElementById('roleBadge').innerText = currentUser.name; } }
+    function logout() { location.reload(); }
+         function switchAdminTab(tab) {
+      document.getElementById('adminTabControl').style.display = tab === 'control' ? 'block' : 'none';
+      document.getElementById('adminTabUnsold').style.display = tab === 'unsold' ? 'block' : 'none';
+      document.getElementById('adminTabFinance').style.display = tab === 'finance' ? 'block' : 'none';
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      event.target.classList.add('active');
+    }
+    function toggleLightningRound() { isLightning = !isLightning; document.getElementById('lightningBtn').innerText = isLightning ? "⚡ LIGHTNING ROUND: ON" : "⚡ LIGHTNING ROUND: OFF"; document.getElementById('lightningBtn').style.backgroundColor = isLightning ? "var(--warning)" : "transparent"; }
+
+    function initAdminSuite() { 
+      db.ref('live_auction').on('value', (snap) => { liveState = snap.val() || {}; renderAdminStage(); }); 
+      db.ref('live_auction/sport').set(activeSport); loadPlayersForSport(); populateFinanceDropdown();
+      
+      // Listen for waiting room requests
+      db.ref('waiting_room').on('value', snap => {
+        const reqs = snap.val(); const div = document.getElementById('adminWaitingRoom'); div.innerHTML = '';
+        if(!reqs) { div.innerHTML = 'No pending requests.'; return; }
+        for(let k in reqs) {
+          const tName = (activeSport==='cricket'?TEAMS_CRICKET:TEAMS_KABADDI)[k]?.name || k;
+          div.innerHTML += `<div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>${tName}</span> <button class="btn btn-success" style="padding:2px 8px; font-size:0.7rem;" onclick="approveUser('${k}')">APPROVE</button></div>`;
+        }
+      });
+
+      adminTimerInterval = setInterval(() => {
+        if(liveState.status === 'live' && liveState.timer > 0 && !liveState.paused) {
+          let newTime = liveState.timer - 1; db.ref('live_auction/timer').set(newTime);
+          if(newTime > 0 && newTime <= 5) soundTick();
+          if(newTime === 5) { aiSpeak("Going once"); triggerHaptic('warn'); }
+          if(newTime === 2) { aiSpeak("Going twice"); triggerHaptic('warn'); }
+        }
+      }, 1000);
+    }
+    function approveUser(uid) { db.ref(`approved_users/${uid}`).set(true); db.ref(`waiting_room/${uid}`).remove(); }
+    
+    function loadPlayersForSport() {
+      db.ref(`players_${activeSport}`).once('value', (snap) => {
+        allPlayers = snap.val() || {}; const datalist = document.getElementById('playerDatalist'); datalist.innerHTML = '';
+        const unsoldList = document.getElementById('adminUnsoldList'); unsoldList.innerHTML = '';
+        
+        for (let id in allPlayers) {
+          const p = allPlayers[id];
+          if(p.status === 'unsold') {
+            unsoldList.innerHTML += `<div class="squad-item"><span>${p.name} (${p.nationality}) - ${formatINR(p.base_price)}</span> <button class="btn btn-gold" style="padding:4px 10px; font-size:0.7rem;" onclick="callPlayerToStageFromId('${id}')">⚡ RECALL</button></div>`;
+          } else if (p.status === 'live' || p.status === 'waiting') {
+            datalist.innerHTML += `<option value="${p.name}">[${p.role}] - ${formatINR(p.base_price)}</option>`;
+          }
+        }
+      });
+    }
+    
+    function callPlayerToStage() {
+      const pName = document.getElementById('playerSearch').value;
+      const pId = Object.keys(allPlayers).find(k => allPlayers[k].name === pName);
+      if(pId) callPlayerToStageFromId(pId); else alert("Player not found in pool.");
+    }
+    
+    function callPlayerToStageFromId(pId) {
+      const p = allPlayers[pId]; const interest = {}; for (let k in (activeSport === 'cricket' ? TEAMS_CRICKET : TEAMS_KABADDI)) interest[k] = true;
+      db.ref('live_auction').set({ sport: activeSport, player_id: pId, player_name: p.name, role: p.role, nationality: p.nationality, base_price: p.base_price, current_bid: p.base_price, highest_bidder: "None", highest_bidder_name: "None", status: "live", timer: isLightning?5:10, team_interest: interest, stats: p.stats || {m:0, r:0} });
+      pushNews(`${p.name} is now on the block! Base: ${formatINR(p.base_price)}`);
+      document.getElementById('playerSearch').value = ''; aiSpeak(`Next player, ${p.name}`);
+    }
+          function updateTimerUI(prefix) {
+      const bar = document.getElementById(`${prefix}TimerBar`); const text = document.getElementById(`${prefix}StatusText`);
+      if(liveState.paused) { bar.style.width="100%"; bar.style.backgroundColor="var(--warning)"; text.style.display="block"; text.innerText="TIMEOUT ACTIVE"; return; }
+      if(!liveState.timer || liveState.status !== 'live') { bar.style.width = "0%"; text.style.display = "none"; return; }
+      const max = isLightning ? 5 : 10; bar.style.width = ((liveState.timer / max) * 100) + "%";
+      if(liveState.timer <= 2) { bar.style.backgroundColor = "var(--danger)"; text.style.display = "block"; text.innerText = "GOING TWICE!"; text.style.color = "var(--danger)"; }
+      else if (liveState.timer <= 5) { bar.style.backgroundColor = "var(--warning)"; text.style.display = "block"; text.innerText = "GOING ONCE!"; text.style.color = "var(--warning)"; }
+      else { bar.style.backgroundColor = "var(--success)"; text.style.display = "none"; }
+    }
+
+    function renderAdminStage() {
+      if (!liveState.player_name) { document.getElementById('adminPlayerName').innerText = "NO PLAYER"; return; }
+      document.getElementById('liveSportTag').innerText = (liveState.sport || activeSport).toUpperCase();
+      document.getElementById('adminPlayerName').innerText = liveState.player_name; document.getElementById('adminPlayerMeta').innerText = `${liveState.role} | ${liveState.nationality}`;
+      document.getElementById('adminBasePrice').innerText = formatINR(liveState.base_price); document.getElementById('adminCurrentBid').innerText = formatINR(liveState.current_bid);
+      document.getElementById('adminLeadingTeam').innerText = liveState.highest_bidder_name || "NONE";
+      document.getElementById('adminPlayerImg').src = getPhoto(liveState.player_name);
+      if(liveState.stats) { document.getElementById('adminStatM').innerText = liveState.stats.m; document.getElementById('adminStatR').innerText = liveState.stats.r; }
+      
+      updateTimerUI('admin');
+    }
+
+    function sellCurrentPlayer() {
+      if (!liveState.player_id || liveState.status !== 'live') return;
+      if (liveState.highest_bidder === "None") return alert("No bids received.");
+      db.ref(`teams/${liveState.highest_bidder}`).once('value', (snap) => {
+        let t = snap.val(); t.budget -= liveState.current_bid; if (!t.squad) t.squad = []; 
+        t.squad.push({ name: liveState.player_name, role: liveState.role, nationality: liveState.nationality, price: liveState.current_bid });
+        db.ref(`teams/${liveState.highest_bidder}`).set(t);
+      });
+      db.ref(`players_${liveState.sport}/${liveState.player_id}/status`).set('sold'); db.ref('live_auction').update({ status: 'sold', timer: 0 });
+      soundGavel(); aiSpeak(`Sold! to ${liveState.highest_bidder_name} for ${formatINR(liveState.current_bid)}`); triggerHaptic('sold');
+      pushNews(`${liveState.player_name} SOLD to ${liveState.highest_bidder_name} for ${formatINR(liveState.current_bid)}`);
+      if (liveState.current_bid >= 100000000 || (liveState.sport === 'kabaddi' && liveState.current_bid >= 10000000)) fireConfetti();
+      loadPlayersForSport(); // refresh unsold list
+    }
+    function passPlayer() { if (!liveState.player_id) return; db.ref(`players_${liveState.sport}/${liveState.player_id}/status`).set('unsold'); db.ref('live_auction').update({ status: 'unsold', timer: 0 }); soundTick(); aiSpeak("Player Unsold"); pushNews(`${liveState.player_name} goes UNSOLD.`); loadPlayersForSport(); }
+
+    function populateFinanceDropdown() { const sel = document.getElementById('financeTeamSelect'); const all = activeSport==='cricket'?TEAMS_CRICKET:TEAMS_KABADDI; sel.innerHTML=''; for(let k in all) sel.innerHTML+=`<option value="${k}">${all[k].name}</option>`; }
+    function overrideBudget() { const t = document.getElementById('financeTeamSelect').value; const amt = parseInt(document.getElementById('financeAmount').value); if(!amt) return; db.ref(`teams/${t}/budget`).set(amt); alert("Budget updated."); }
+    function requestTimeout() { db.ref('live_auction/paused').set(true); pushNews("STRATEGIC TIMEOUT CALLED."); aiSpeak("Strategic Timeout."); }
+    function endAuction() { if(confirm("End season? This saves data to history and clears live board.")) { db.ref('teams').once('value', snap => { db.ref(`history/season_${Date.now()}`).set(snap.val()); db.ref('live_auction').set(null); viewAllSquads(); document.getElementById('tradePanel').style.display='block'; }); } }
+         function initOwnerSuite() {
+      document.getElementById('ownerFranchiseName').innerText = currentUser.name;
+      document.getElementById('ownerColorCard').style.borderColor = currentUser.color;
+      
+      db.ref(`teams/${currentUser.id}`).on('value', (snap) => {
+        const t = snap.val(); if (!t) return;
+        currentUser.budget = t.budget; document.getElementById('ownerPurseDisplay').innerText = formatINR(t.budget);
+        const squad = t.squad || []; document.getElementById('ownerSquadCount').innerText = `${squad.length}/25`;
+        const overseas = squad.filter(p => p.nationality === 'Overseas').length; document.getElementById('ownerOverseasCount').innerText = `${overseas}/8`;
+        currentUser.overseasCount = overseas; currentUser.squad = squad;
+        
+        const grid = document.getElementById('ownerRosterGrid'); grid.innerHTML = '';
+        for(let i=0; i<25; i++) {
+          if(i < squad.length) grid.innerHTML += `<div class="roster-slot filled"><span class="p-name">${squad[i].name}</span><span class="p-price">${formatINR(squad[i].price).replace('₹','')}</span></div>`;
+          else grid.innerHTML += `<div class="roster-slot" style="color:var(--text-muted);">+</div>`;
+        }
+      });
+      db.ref('live_auction').on('value', (snap) => { 
+        let oldBidder = liveState.highest_bidder; liveState = snap.val() || {}; renderOwnerStage(); 
+        if(liveState.highest_bidder !== oldBidder && liveState.highest_bidder !== currentUser.id && oldBidder === currentUser.id) triggerHaptic('warn'); 
+      });
+    }
+
+    function renderOwnerStage() {
+      if (!liveState.player_name) { document.getElementById('ownerPlayerName').innerText = "WAITING..."; return; }
+      document.getElementById('ownerPlayerName').innerText = liveState.player_name; document.getElementById('ownerPlayerMeta').innerText = `${liveState.role} | ${liveState.nationality}`;
+      document.getElementById('ownerCurrentBid').innerText = formatINR(liveState.current_bid); document.getElementById('ownerLeadingTeam').innerText = liveState.highest_bidder_name || "NONE";
+      document.getElementById('ownerPlayerImg').src = getPhoto(liveState.player_name);
+      if(liveState.stats) { document.getElementById('ownerStatM').innerText = liveState.stats.m; document.getElementById('ownerStatR').innerText = liveState.stats.r; }
+      const inc = getBidIncrement(liveState.current_bid); document.getElementById('nextIncrementText').innerText = formatINR(inc).replace('₹', '');
+      
+      const bidBtn = document.getElementById('bidBtn'); const jumpBtn = document.getElementById('jumpBtn');
+      const isOut = liveState.team_interest && liveState.team_interest[currentUser.id] === false;
+      const quotaFull = (liveState.nationality === 'Overseas' && currentUser.overseasCount >= 8);
+      
+      let disableBid = isOut || liveState.highest_bidder === currentUser.id || liveState.status !== 'live' || liveState.paused || (currentUser.budget < (liveState.current_bid + inc)) || quotaFull;
+      bidBtn.disabled = disableBid; jumpBtn.disabled = disableBid; document.getElementById('passBtn').disabled = isOut || liveState.status !== 'live';
+      if (quotaFull) bidBtn.innerHTML = "QUOTA FULL"; else bidBtn.innerHTML = `BID +₹<span id="nextIncrementText">${formatINR(inc).replace('₹', '')}</span>`;
+      
+      updateTimerUI('owner');
+      if(liveState.status === 'sold' && liveState.player_id !== lastPlayerId) { if (liveState.current_bid >= 100000000 || (liveState.sport === 'kabaddi' && liveState.current_bid >= 10000000)) fireConfetti(); lastPlayerId = liveState.player_id; }
+    }
+
+    function pushBid(amt) {
+      if (currentUser.budget < amt) return alert("Funds depleted!");
+      db.ref('live_auction').update({ current_bid: amt, highest_bidder: currentUser.id, highest_bidder_name: currentUser.name, timer: isLightning?5:10, paused: false });
+      soundBid(); triggerHaptic('bid'); pushNews(`${currentUser.name} bids ${formatINR(amt)}`);
+    }
+    function submitBid() { pushBid(liveState.current_bid + getBidIncrement(liveState.current_bid)); }
+    function submitJumpBid() { const val = parseInt(document.getElementById('jumpBidAmount').value); if(!val || val <= liveState.current_bid) return; pushBid(val); document.getElementById('jumpBidAmount').value = ''; }
+    function submitPass() { db.ref(`live_auction/team_interest/${currentUser.id}`).set(false); }
+    
+    function shareToWhatsApp() {
+      if(!currentUser.squad) return;
+      let text = `🏆 *${currentUser.name} - Final Squad* 🏆\n💰 Purse Left: ${formatINR(currentUser.budget)}\n\n`;
+      currentUser.squad.forEach((p,i) => { text += `${i+1}. ${p.name} (${p.nationality}) - ${formatINR(p.price)}\n`; });
+      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`);
+    }
+
+    function exportCSV() {
+      db.ref('teams').once('value', snap => {
+        let csv = "Team,Budget Remaining,Player Name,Role,Nationality,Price\n"; const teams = snap.val();
+        for(let t in teams) { if(!teams[t].squad) continue; teams[t].squad.forEach(p => csv += `${teams[t].name},${teams[t].budget},${p.name},${p.role},${p.nationality},${p.price}\n`); }
+        const blob = new Blob([csv], { type: 'text/csv' }); const a = document.createElement('a'); a.setAttribute('href', window.URL.createObjectURL(blob)); a.setAttribute('download', 'Auction_Results.csv'); a.click();
+      });
+                                     }
+          function initSpectatorSuite() {
+      db.ref('live_auction').on('value', snap => {
+        liveState = snap.val() || {};
+        if(!liveState.player_name) { document.getElementById('specPlayerName').innerText = "AWAITING ACTION"; return; }
+        document.getElementById('specPlayerName').innerText = liveState.player_name; document.getElementById('specPlayerMeta').innerText = `${liveState.role} | ${liveState.nationality}`;
+        document.getElementById('specCurrentBid').innerText = formatINR(liveState.current_bid); document.getElementById('specLeadingTeam').innerText = liveState.highest_bidder_name || "NONE";
+        document.getElementById('specPlayerImg').src = getPhoto(liveState.player_name);
+        updateTimerUI('spec');
+        if(liveState.status === 'sold' && liveState.player_id !== lastPlayerId) { if(liveState.current_bid >= 100000000) fireConfetti(); lastPlayerId = liveState.player_id; }
+      });
+      // Chart Logic
+      const ctx = document.getElementById('warRoomChart').getContext('2d');
+      db.ref('teams').on('value', snap => {
+        const teams = snap.val(); if(!teams) return;
+        const labels = [], data = [], colors = [];
+        for(let k in teams) {
+          if((activeSport==='cricket' && TEAMS_CRICKET[k]) || (activeSport==='kabaddi' && TEAMS_KABADDI[k])) {
+            labels.push(teams[k].name.split(' ')[0]); data.push(teams[k].budget / 10000000); colors.push(teams[k].color || '#fff');
+          }
+        }
+        if(chartInstance) chartInstance.destroy();
+        chartInstance = new Chart(ctx, { type: 'bar', data: { labels: labels, datasets: [{ label: 'Remaining Purse (Cr)', data: data, backgroundColor: colors }] }, options: { scales: { y: { beginAtZero: true } }, plugins: { legend: { display: false } } } });
+      });
+    }
+
+    function viewAllSquads() {
+      db.ref('teams').once('value', (snap) => {
+        const container = document.getElementById('allSquadsContainer'); container.innerHTML = ''; const teams = snap.val();
+        const tSel = document.getElementById('tradeTeamSelect'); tSel.innerHTML = '<option value="">Select Target Team</option>';
+        for (let tId in teams) {
+          const t = teams[tId]; const squad = t.squad || [];
+          tSel.innerHTML += `<option value="${tId}">${t.name}</option>`;
+          let playersHtml = squad.map(p => `<div style="display:flex; justify-content:space-between; font-size:0.85rem; padding:4px; border-bottom:1px solid var(--glass-border);"><span>${p.name}</span><span style="color:var(--success);">${formatINR(p.price)}</span></div>`).join('');
+          container.innerHTML += `<div class="card" style="border-top:3px solid ${t.color||'#fff'};"><h3 style="color:#fff; margin-bottom: 5px; font-size:1.1rem;">${t.name}</h3><div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">Purse: <b style="color:var(--gold);">${formatINR(t.budget)}</b> | Pl: ${squad.length}</div><div style="max-height:200px; overflow-y:auto;">${playersHtml}</div></div>`;
+        }
+        enterScreen('squadsScreen');
+      });
+    }
+
+    function seedDatabase() {
+      if (!confirm("SYSTEM OVERRIDE: Reset everything?")) return;
+      const cric = {}, kab = {};
+      const cStars = ["Virat Kohli", "Rohit Sharma", "MS Dhoni", "Jasprit Bumrah", "Rishabh Pant", "Shubman Gill", "Hardik Pandya", "Ravindra Jadeja", "Suryakumar Yadav", "Shreyas Iyer"];
+      const cOverStars = ["Mitchell Starc", "Heinrich Klaasen", "Rashid Khan", "Nicholas Pooran", "Pat Cummins"];
+      const kStars = ["Pawan Sehrawat", "Pardeep Narwal", "Maninder Singh", "Fazel Atrachali (O)", "Sunil Kumar"];
+      const gF = ["Amit", "Rahul", "Rohan", "Vikram", "Suresh"]; const gL = ["Sharma", "Verma", "Singh", "Patel", "Kumar"];
+      
+      for (let i = 1; i <= 300; i++) {
+        let name = "", nat = "Indian", r = (i>75 && i<=180)?"Bowler":(i>180 && i<=255)?"All-Rounder":(i>255)?"Wicket-Keeper":"Batter";
+        if (i <= 10) name = cStars[i-1]; else if (i <= 15) { name = cOverStars[i-11]; nat = "Overseas"; } else { name = gF[i%gF.length] + " " + gL[(i*3)%gL.length]; nat = Math.random() > 0.75 ? "Overseas" : "Indian"; }
+        cric[`cric_${String(i).padStart(3, '0')}`] = { name: name, role: r, nationality: nat, base_price: i<=20 ? 20000000 : 5000000, status: "waiting", stats: {m: Math.floor(Math.random()*150)+50, r: Math.floor(Math.random()*150)+100} };
+      }
+      for (let i = 1; i <= 200; i++) {
+        let name = "", nat = "Indian";
+        if (i <= 5) { name = kStars[i-1]; if(name.includes("(O)")) nat = "Overseas"; } else { name = gF[(i*2)%gF.length] + " " + gL[(i*5)%gL.length]; nat = "Indian"; }
+        kab[`kab_${String(i).padStart(3, '0')}`] = { name: name.replace(" (O)",""), role: "Raider", nationality: nat, base_price: 3000000, status: "waiting", stats: {m: Math.floor(Math.random()*100)+20, r: Math.floor(Math.random()*300)+100} };
+      }
+      db.ref('players_cricket').set(cric); db.ref('players_kabaddi').set(kab); db.ref('teams').set(activeSport==='cricket'?TEAMS_CRICKET:TEAMS_KABADDI);
+      db.ref('live_auction').set(null); db.ref('waiting_room').set(null); db.ref('approved_users').set(null);
+      alert("System Seeded!"); loadPlayersForSport();
+    }
+  </script>
+</body>
+</html>
